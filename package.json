@@ -1,0 +1,17 @@
+{
+	"name": "floodzle",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"dev": "vite dev --host 51.38.235.117 --port 5140",
+		"build": "vite build",
+		"preview": "vite preview --host 51.38.235.117 --port 5140"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "next",
+		"@sveltejs/kit": "next",
+		"svelte": "^3.44.0",
+		"vite": "^3.1.0"
+	},
+	"type": "module"
+}
