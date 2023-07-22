@@ -602,6 +602,7 @@ function playAgain(){
         <button class = "key" class:correct={statusM === 'correct'} class:present={statusM === 'present'} class:absent={statusM === 'absent'} on:click = {() => {keyPress('M')}} > M </button>
     </div>
     <div class = "row" >
+        <button class = "vide"></button>
         <button class = "key" on:click = {() => {keyPress('backspace')}} > ← </button>
         <button class = "key" class:correct={statusW === 'correct'} class:present={statusW === 'present'} class:absent={statusW === 'absent'} on:click = {() => {keyPress('W')}} > W </button>
         <button class = "key" class:correct={statusX === 'correct'} class:present={statusX === 'present'} class:absent={statusX === 'absent'} on:click = {() => {keyPress('X')}} > X </button>
@@ -610,6 +611,7 @@ function playAgain(){
         <button class = "key" class:correct={statusB === 'correct'} class:present={statusB === 'present'} class:absent={statusB === 'absent'} on:click = {() => {keyPress('B')}} > B </button>
         <button class = "key" class:correct={statusN === 'correct'} class:present={statusN === 'present'} class:absent={statusN === 'absent'} on:click = {() => {keyPress('N')}} > N </button>
         <button class = "key" on:click = {() => {keyPress('enter')}} > ↩ </button>
+        <button class = "vide"></button>
     </div>
 </div>
 
@@ -729,6 +731,14 @@ function playAgain(){
 
     .key.absent:hover{
         background-color: #6a6a6a;
+    }
+
+    .vide{
+        width: 40px;
+        height: 40px;
+        margin: 3px;
+        background-color: #ffffff;
+        border: none;
     }
 
     @keyframes spin {
