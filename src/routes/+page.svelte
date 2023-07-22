@@ -4,6 +4,7 @@
 </script>
 
 <title>Floodzle</title>
+<description>Jouez au Floodzle</description>
 
 <Top/>
 <br>
