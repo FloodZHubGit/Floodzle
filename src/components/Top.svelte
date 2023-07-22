@@ -22,6 +22,6 @@
         border: 2px solid #000000;
         border-radius: 10px;
         padding: 5px;
-        margin: 5px;
+        margin: 5px;    
     }
 </style>

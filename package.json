@@ -3,9 +3,9 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "vite dev --host 51.38.235.117 --port 5141",
+		"dev": "vite dev",
 		"build": "vite build",
-		"preview": "vite preview --host 51.38.235.117 --port 5141"
+		"preview": "vite preview"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "next",

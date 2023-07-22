@@ -5,13 +5,8 @@
 
     let key;
 
-    var gris = "#444";
-    var orange = "#f90";
-    var vert = "#0f0";
-
     var status = Array.from(Array(6), () => new Array(6))
 
-    /// variable to change the color of the letters in the keyboard
     var statusA = "none";
     var statusB = "none";
     var statusC = "none";
@@ -607,14 +602,14 @@ function playAgain(){
         <button class = "key" class:correct={statusM === 'correct'} class:present={statusM === 'present'} class:absent={statusM === 'absent'} on:click = {() => {keyPress('M')}} > M </button>
     </div>
     <div class = "row" >
-        <button class = "key" on:click = {() => {keyPress('enter')}} > ↩ </button>
+        <button class = "key" on:click = {() => {keyPress('backspace')}} > ← </button>
         <button class = "key" class:correct={statusW === 'correct'} class:present={statusW === 'present'} class:absent={statusW === 'absent'} on:click = {() => {keyPress('W')}} > W </button>
         <button class = "key" class:correct={statusX === 'correct'} class:present={statusX === 'present'} class:absent={statusX === 'absent'} on:click = {() => {keyPress('X')}} > X </button>
         <button class = "key" class:correct={statusC === 'correct'} class:present={statusC === 'present'} class:absent={statusC === 'absent'} on:click = {() => {keyPress('C')}} > C </button>
         <button class = "key" class:correct={statusV === 'correct'} class:present={statusV === 'present'} class:absent={statusV === 'absent'} on:click = {() => {keyPress('V')}} > V </button>
         <button class = "key" class:correct={statusB === 'correct'} class:present={statusB === 'present'} class:absent={statusB === 'absent'} on:click = {() => {keyPress('B')}} > B </button>
         <button class = "key" class:correct={statusN === 'correct'} class:present={statusN === 'present'} class:absent={statusN === 'absent'} on:click = {() => {keyPress('N')}} > N </button>
-        <button class = "key" on:click = {() => {keyPress('backspace')}} > ← </button>
+        <button class = "key" on:click = {() => {keyPress('enter')}} > ↩ </button>
     </div>
 </div>
 
@@ -676,24 +671,10 @@ function playAgain(){
 
     .square.present{
         background-color: #cd8729;
-        color: #fff;
-        height: 1.75rem;
-        border: 2px solid #000;
-        border-radius: 10px;
-        padding: 10px;
-        font-size: 20px;
-        text-align: center;
     }
 
     .square.correct{
         background-color: #3eaa42;
-        color: #fff;
-        height: 1.75rem;
-        border: 2px solid #000;
-        border-radius: 10px;
-        padding: 10px;
-        font-size: 20px;
-        text-align: center;
     }
 
     .keyboard{
@@ -706,17 +687,18 @@ function playAgain(){
         padding: 5px;
         margin: 5px;
     }
+    
     .row{
         display: flex;
         flex-direction: row;
         justify-content: center;
     }
     .key{
-        width: 30px;
-        height: 30px;
+        width: 40px;
+        height: 40px;
         border: 2px solid #000000;
         border-radius: 10px;
-        margin: 5px;
+        margin: 3px;
         background-color: #ffffff;
         cursor: pointer;
     }
@@ -747,6 +729,11 @@ function playAgain(){
 
     .key.absent:hover{
         background-color: #6a6a6a;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
 </style>
