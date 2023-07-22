@@ -4,7 +4,7 @@
 </script>
 
 <title>Floodzle</title>
-<description>Jouez au Floodzle</description>
+<meta name="description" content="Jouez au Floodzle">
 
 <Top/>
 <br>
