@@ -617,10 +617,10 @@ function playAgain(){
 
 {#if gameEnded == true}
 <center>
-<button class = "playAgain" on:click = {() => {playAgain()}} > Rejouer </button>
 {#if perdu == true}
 <p class="answer">Le mot était {wordToGuess}</p>
 {/if}
+<button class = "playAgain" on:click = {() => {playAgain()}} > Rejouer </button>
 </center>
 {/if}
 
@@ -633,9 +633,10 @@ function playAgain(){
 
     .playAgain{
         font-size: 30px;
-        background-color: #444;
-        border: none;
-        color: white;
+        background-color: #ffffff;
+        border: 2px solid #000000;
+        border-radius: 10px;
+        color: black;
         padding: 15px 32px;
         text-align: center;
         text-decoration: none;
@@ -643,6 +644,10 @@ function playAgain(){
         font-size: 16px;
         cursor: pointer;
         border-radius: 10px;
+    }
+
+    .playAgain:hover{
+        background-color: rgb(211, 211, 211);
     }
 
     .grid {
@@ -740,10 +745,4 @@ function playAgain(){
         background-color: #ffffff;
         border: none;
     }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
 </style>
