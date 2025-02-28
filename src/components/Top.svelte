@@ -10,6 +10,7 @@
 <!--create a nice header for a wordle game called floodzle-->
 <div class="header">
     <h1>Floodzle</h1>
+    <div class="subtitle">Jouez au Floodzle en solo ou multijoueur</div>
 </div>
 
 <style>
@@ -23,5 +24,11 @@
         border-radius: 10px;
         padding: 5px;
         margin: 5px;    
+    }
+    
+    .subtitle {
+        font-size: 12px;
+        margin-bottom: 8px;
+        font-family: Arial, sans-serif;
     }
 </style>

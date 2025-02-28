@@ -1,12 +1,22 @@
 <script>
     import { getRandomWord, isWordValid } from '../components/Dictionnary.js';
-
+    import OpponentGrid from './OpponentGrid.svelte';
+    
+    // Multiplayer props
+    export let multiplayerMode = false;
+    export let multiplayerWordToGuess = "";
+    export let multiplayerRef = null;
+    export let opponentMoves = {};
+    export let players = [];
+    
     export let wordToGuess = getRandomWord();
-
+    
+    $: if (multiplayerMode && multiplayerWordToGuess) {
+        wordToGuess = multiplayerWordToGuess;
+    }
+    
     let key;
-
     var status = Array.from(Array(6), () => new Array(6))
-
     var statusA = "none";
     var statusB = "none";
     var statusC = "none";
@@ -33,8 +43,6 @@
     var statusX = "none";
     var statusY = "none";
     var statusZ = "none";
-
-
     var text = Array.from(Array(6), () => new Array(6))
     text[0][0] = " ";
     text[0][1] = " ";
@@ -66,18 +74,15 @@
     text[5][2] = " ";
     text[5][3] = " ";
     text[5][4] = " ";
-
     var mot = "";
-
     let row = 0;
     let column = 0;
-
     let letterPool = []
-
     let gameEnded = false;
-
     let perdu = false;
-
+    let roundWinner = "";
+    let isShowingResults = false;
+    
 function keyPress(key) {
     if(row <6 && gameEnded == false){
         if(key == "backspace") {
@@ -116,7 +121,6 @@ function checkMot(){
                 letterPool.push(wordToGuess[i]);
             }
         }
-
         for(let i = 0; i < 5; i++){
             if(status[row][i] != "correct"){
                 if(letterPool.includes(mot[i])){
@@ -129,11 +133,24 @@ function checkMot(){
                 }
             }
         }
-
         letterPool = [];
+        
+        // Send move to other players if in multiplayer mode
+        if (multiplayerMode && multiplayerRef) {
+            multiplayerRef.sendMove(row, [...text[row]], [...status[row]]);
+        }
         
         if(mot == wordToGuess){
             gameEnded = true;
+            
+            // If in multiplayer mode, send win notification
+            if (multiplayerMode && multiplayerRef) {
+                multiplayerRef.sendWin();
+                isShowingResults = true;
+                setTimeout(() => {
+                    isShowingResults = false;
+                }, 5000);
+            }
         } else {
             row++;
             column = 0;
@@ -501,6 +518,11 @@ function resetKeyboard(){
 }
 
 function handleKeydown(event) {
+    // Ignore keyboard events when typing in input fields
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+    }
+    
     if(gameEnded == false){
         key = event.key;
         if(key == "a" || key == "b" || key == "c" || key == "d" || key == "e" || key == "f" || key == "g" || key == "h" || key == "i" || key == "j" || key == "k" || key == "l" || key == "m" || key == "n" || key == "o" || key == "p" || key == "q" || key == "r" || key == "s" || key == "t" || key == "u" || key == "v" || key == "w" || key == "x" || key == "y" || key == "z") {
@@ -511,10 +533,12 @@ function handleKeydown(event) {
             keyPress("enter");
         }
     }
-	}
+}
 
 function playAgain(){
-    wordToGuess = getRandomWord();
+    if (!multiplayerMode) {
+        wordToGuess = getRandomWord();
+    }
     resetKeyboard();
     row = 0;
     column = 0;
@@ -529,8 +553,12 @@ function playAgain(){
     }
 }
 
+// Get formatted opponent names
+function getOpponentName(playerId) {
+    const playerIndex = players.findIndex(p => p.id === playerId);
+    return `Player ${playerIndex + 1}`;
+}
 </script>
-
 <svelte:window on:keydown={handleKeydown}/>
 
 <div class="grid">
@@ -615,12 +643,18 @@ function playAgain(){
     </div>
 </div>
 
+<!-- Game end states -->
 {#if gameEnded == true}
 <center>
 {#if perdu == true}
 <p class="answer">Le mot était {wordToGuess}</p>
 {/if}
-<button class = "playAgain" on:click = {() => {playAgain()}} > Rejouer </button>
+
+{#if !multiplayerMode || isShowingResults}
+<button class="playAgain" on:click={playAgain}>
+    {multiplayerMode ? "Prêt pour le prochain tour" : "Rejouer"}
+</button>
+{/if}
 </center>
 {/if}
 
@@ -744,5 +778,11 @@ function playAgain(){
         margin: 3px;
         background-color: #ffffff;
         border: none;
+    }
+
+    .multiplayer-container,
+    .opponents-container,
+    .opponents-grid {
+        display: none;
     }
 </style>
