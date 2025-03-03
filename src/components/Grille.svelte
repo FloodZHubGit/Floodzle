@@ -688,26 +688,29 @@ function getOpponentName(playerId) {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
         grid-template-rows: repeat(6, 1fr);
-        grid-gap: 3px;
+        grid-gap: 5px;
         background-color: #fff;
         color: #444;
-        padding: 10px;
-        width: 325px;
-        height: 300px;
+        padding: 20px;
+        width: 350px;
+        height: 420px;
         margin: auto;
         margin-bottom: 50px;
-
     }
-    .square{
-        font-family: 'Arial', Courier, monospace;
+    
+    .square {
+        font-family: 'Arial', sans-serif;
         background-color: #444;
         color: #fff;
-        height: 1.75rem;    
+        aspect-ratio: 1;
         border: 2px solid #000;
         border-radius: 10px;
-        padding: 10px;
-        font-size: 20px;
-        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: bold;
+        text-transform: uppercase;
     }
 
     .square.present{

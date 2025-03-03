@@ -15,7 +15,7 @@
     let currentPlayerId = "";
     let gameStarted = false;
     
-    let multiplayerRef; // Reference to the multiplayer component
+    let multiplayerRef;
     
     function handleMultiplayerModeChanged(event) {
         inMultiplayerMode = event.detail.inMultiplayerMode;
@@ -30,7 +30,6 @@
     }
     
     function handleRoundComplete(event) {
-        // Handle end of round in multiplayer
         scores = event.detail.scores;
     }
     
@@ -51,17 +50,13 @@
     function returnToMenu() {
         gameMode = "menu";
         gameStarted = false;
-        if (inMultiplayerMode && multiplayerRef) {
-            // Leave multiplayer room if in one
-            multiplayerRef.leaveRoom();
-            inMultiplayerMode = false;
-        }
+        inMultiplayerMode = false;
     }
     
-    // Get formatted opponent names
+    // Get formatted opponent names using PlayroomKit player profiles
     function getOpponentName(playerId) {
-        const playerIndex = players.findIndex(p => p.id === playerId);
-        return `Player ${playerIndex + 1}`;
+        const player = players.find(p => p.id === playerId);
+        return player?.name || `Player ${players.indexOf(player) + 1}`;
     }
     
     // Get opponents (players except current player)

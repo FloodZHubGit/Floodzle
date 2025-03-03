@@ -1,6 +1,7 @@
 <script>
     import { onMount, onDestroy } from "svelte";
-    import io from "socket.io-client";
+    import { insertCoin, isHost as isPlayroomHost, myPlayer, getState, setState, onPlayerJoin, getRoomCode, waitForState, RPC } from "playroomkit";
+    import { getRandomWord } from './Dictionnary.js';
     
     export let inMultiplayerMode = false;
     export let roomCode = "";
@@ -10,253 +11,337 @@
     export let scores = {};
     export let opponentMoves = {};
     export let playerId = "";
-    export let gameStarted = false; // Expose gameStarted to parent
+    export let gameStarted = false;
     
-    let socket;
-    let joinRoomInput = "";
     let errorMessage = "";
-    let isConnected = false;
     let isReady = false;
-    
-    // Events that will be dispatched to parent components
+    let gameInitialized = false;
+    let playerName = "";
+    let joinRoomCode = "";
+    let showJoinForm = true;
+
     import { createEventDispatcher } from "svelte";
     const dispatch = createEventDispatcher();
-    
-    onMount(() => {
-        // Connect to the Socket.io server
-        socket = io("http://localhost:3001");
-        
-        socket.on("connect", () => {
-            isConnected = true;
-            console.log("Connected to server with ID:", socket.id);
-            playerId = socket.id;
-        });
-        
-        // Handle room creation
-        socket.on("roomCreated", (data) => {
-            roomCode = data.roomCode;
-            isHost = true;
-            inMultiplayerMode = true;
-            dispatch("multiplayerModeChanged", { inMultiplayerMode });
-        });
-        
-        // Handle joining a room
-        socket.on("roomJoined", (data) => {
-            roomCode = data.roomCode;
-            inMultiplayerMode = true;
-            dispatch("multiplayerModeChanged", { inMultiplayerMode });
-        });
-        
-        // Handle player joins
-        socket.on("playerJoined", (data) => {
-            players = data.players;
-        });
-        
-        // Handle player ready updates
-        socket.on("playerReadyUpdate", (data) => {
-            players = data.players;
-        });
-        
-        // Handle game start
-        socket.on("gameStart", (data) => {
-            gameStarted = true;
-            wordToGuess = data.wordToGuess;
-            dispatch("gameStart", { wordToGuess });
-        });
-        
-        // Handle opponent moves
-        socket.on("opponentMove", (data) => {
-            // Add move to opponent moves collection
-            if (!opponentMoves[data.playerId]) {
-                opponentMoves[data.playerId] = [];
-            }
-            
-            opponentMoves[data.playerId].push({
-                row: data.row,
-                text: data.text,
-                status: data.status
+
+    async function initializeGame(joinCode = null) {
+        try {
+            // Initialize PlayroomKit and wait for launch
+            await insertCoin({ 
+                gameId: "YOUR_GAME_ID",
+                maxPlayersPerRoom: 4,
+                skipLobby: true,
+                roomCode: joinCode,
+                onDisconnect: (reason) => {
+                    if (isHost) {
+                        // Handle host disconnection
+                        const currentPlayers = getState("players") || [];
+                        const remainingPlayers = currentPlayers.filter(p => p.id !== playerId);
+                        if (remainingPlayers.length > 0) {
+                            // Transfer host to the next player
+                            setState("players", remainingPlayers);
+                        }
+                    }
+                    gameInitialized = false;
+                    showJoinForm = true;
+                    inMultiplayerMode = false;
+                    dispatch("multiplayerModeChanged", { inMultiplayerMode });
+                }
+            }).then(() => {
+                gameInitialized = true;
+                playerId = myPlayer().id;
+                isHost = isPlayroomHost();
+                roomCode = getRoomCode();
+                inMultiplayerMode = true;
+                showJoinForm = false;
+                
+                if (isHost) {
+                    setState("players", [{ id: playerId, name: playerName || "Player 1", ready: false }]);
+                    setState("scores", { [playerId]: 0 });
+                }
+
+                dispatch("multiplayerModeChanged", { inMultiplayerMode });
             });
             
-            opponentMoves = { ...opponentMoves };
-            dispatch("opponentMove", { opponentMoves });
-        });
-        
-        // Handle round completion
-        socket.on("roundComplete", (data) => {
-            scores = data.scores;
-            dispatch("roundComplete", { winner: data.winner, scores, wordToGuess: data.wordToGuess });
-        });
-        
-        // Handle new round
-        socket.on("newRound", (data) => {
-            wordToGuess = data.wordToGuess;
-            gameStarted = true; // Game starts again for new round
-            isReady = false;
-            opponentMoves = {};
-            dispatch("newRound", { wordToGuess });
-        });
-        
-        // Handle player leaving
-        socket.on("playerLeft", (data) => {
-            players = data.players;
-        });
-        
-        // Handle errors
-        socket.on("error", (error) => {
+            // Set up player join handler
+            onPlayerJoin((player) => {
+                try {
+                    const currentPlayers = getState("players") || [];
+                    const currentScores = getState("scores") || {};
+                    
+                    // Only add the player if they're not already in the list
+                    if (!currentPlayers.find(p => p.id === player.id)) {
+                        const playerNumber = currentPlayers.length + 1;
+                        const updatedPlayers = [...currentPlayers, { 
+                            id: player.id, 
+                            name: `Player ${playerNumber}`,
+                            ready: false 
+                        }];
+                        setState("players", updatedPlayers);
+                        currentScores[player.id] = 0;
+                        setState("scores", currentScores);
+                    }
+                    
+                    players = getState("players");
+                    scores = getState("scores");
+                    
+                    // Set the player's name in the input if it's the current player
+                    if (player.id === playerId && !playerName) {
+                        const currentPlayer = players.find(p => p.id === playerId);
+                        if (currentPlayer) {
+                            playerName = currentPlayer.name;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error handling player join:", e);
+                }
+            });
+
+            // Register RPC handlers
+            RPC.register("playerMove", (data, sender) => {
+                if (!opponentMoves[sender.id]) {
+                    opponentMoves[sender.id] = [];
+                }
+                opponentMoves[sender.id].push({
+                    row: data.row,
+                    text: data.text,
+                    status: data.status
+                });
+                opponentMoves = { ...opponentMoves };
+                dispatch("opponentMove", { opponentMoves });
+            });
+
+            // Register name update handler
+            RPC.register("updatePlayerName", (data) => {
+                const { playerId: updatedPlayerId, name } = data;
+                const currentPlayers = getState("players") || [];
+                const updatedPlayers = currentPlayers.map(p => 
+                    p.id === updatedPlayerId ? { ...p, name } : p
+                );
+                setState("players", updatedPlayers);
+                players = updatedPlayers;
+            });
+
+            // Handle game start
+            waitForState("gameStarted").then(() => {
+                gameStarted = true;
+                wordToGuess = getState("wordToGuess");
+                dispatch("gameStart", { wordToGuess });
+            });
+
+            // Handle round completion
+            waitForState("roundComplete").then(() => {
+                const roundData = getState("roundComplete");
+                scores = roundData.scores;
+                dispatch("roundComplete", { 
+                    winner: roundData.winner, 
+                    scores, 
+                    wordToGuess: roundData.wordToGuess 
+                });
+            });
+        } catch (error) {
             errorMessage = error.message;
             setTimeout(() => {
                 errorMessage = "";
             }, 5000);
-        });
-    });
-
-    onDestroy(() => {
-        if (socket) {
-            socket.disconnect();
+            // Reset state on error
+            gameInitialized = false;
+            showJoinForm = true;
         }
+    }
+    
+    onMount(() => {
+        // Don't auto-initialize, wait for user to create or join room
     });
-
-    // Create a new room
+    
     function createRoom() {
-        if (!isConnected) return;
-        socket.emit("createRoom");
+        if (!playerName.trim()) {
+            errorMessage = "Please enter your name first";
+            setTimeout(() => {
+                errorMessage = "";
+            }, 3000);
+            return;
+        }
+        initializeGame();
     }
-
-    // Join an existing room
+    
     function joinRoom() {
-        if (!isConnected || !joinRoomInput) return;
-        socket.emit("joinRoom", joinRoomInput.toUpperCase());
+        if (!playerName.trim()) {
+            errorMessage = "Please enter your name first";
+            setTimeout(() => {
+                errorMessage = "";
+            }, 3000);
+            return;
+        }
+        if (!joinRoomCode.trim()) {
+            errorMessage = "Please enter a room code";
+            setTimeout(() => {
+                errorMessage = "";
+            }, 3000);
+            return;
+        }
+        initializeGame(joinRoomCode.trim().toUpperCase());
     }
 
-    // Mark player as ready
+    // Mark player as ready and update name
     function setReady() {
+        if (!playerName.trim()) {
+            errorMessage = "Please enter your name first";
+            setTimeout(() => {
+                errorMessage = "";
+            }, 3000);
+            return;
+        }
+
         isReady = true;
-        socket.emit("playerReady", { roomCode });
-    }
-
-    // Leave the current room
-    export function leaveRoom() {
-        if (socket && roomCode) {
-            socket.emit("leaveRoom", roomCode);
-            resetState();
+        const currentPlayers = getState("players") || [];
+        const updatedPlayers = currentPlayers.map(p => 
+            p.id === playerId ? { ...p, ready: true, name: playerName } : p
+        );
+        setState("players", updatedPlayers);
+        
+        // Broadcast name update to other players
+        RPC.call("updatePlayerName", { playerId, name: playerName }, RPC.Mode.ALL);
+        
+        // Check if all players are ready
+        if (updatedPlayers.length > 1 && updatedPlayers.every(p => p.ready)) {
+            if (isHost) {
+                setState("gameStarted", true);
+                setState("wordToGuess", getRandomWord());
+            }
         }
     }
 
-    // Reset local state
-    function resetState() {
-        roomCode = "";
-        isHost = false;
-        players = [];
-        inMultiplayerMode = false;
-        gameStarted = false;
-        isReady = false;
-        wordToGuess = "";
-        scores = {};
-        opponentMoves = {};
-        dispatch("multiplayerModeChanged", { inMultiplayerMode });
-    }
-
-    // Send a move to other players
+    // Export functions for parent components
     export function sendMove(row, text, status) {
-        if (socket && roomCode) {
-            socket.emit("playerMove", { roomCode, row, text, status });
-        }
+        RPC.call("playerMove", { row, text, status }, RPC.Mode.OTHERS);
     }
 
-    // Send win notification
     export function sendWin() {
-        if (socket && roomCode) {
-            socket.emit("playerWin", { roomCode });
+        if (isHost) {
+            const currentScores = getState("scores") || {};
+            currentScores[playerId] = (currentScores[playerId] || 0) + 1;
+            setState("scores", currentScores);
+            setState("roundComplete", {
+                winner: playerId,
+                scores: currentScores,
+                wordToGuess: getState("wordToGuess")
+            });
+            
+            // Start new round after delay
+            setTimeout(() => {
+                setState("wordToGuess", getRandomWord());
+                setState("gameStarted", true);
+                setState("players", players.map(p => ({ ...p, ready: false })));
+                dispatch("newRound", { wordToGuess: getState("wordToGuess") });
+            }, 5000);
         }
     }
 </script>
 
-<!-- Multiplayer UI -->
-{#if !inMultiplayerMode}
-    <div class="multiplayer-menu">
-        <h2>Multiplayer Mode</h2>
-        <div class="button-group">
-            <button on:click={createRoom}>Create Game</button>
-            <div class="join-room">
+{#if !gameInitialized && showJoinForm}
+    <div class="room-lobby">
+        <h2>Join or Create Game</h2>
+        <div class="name-input">
+            <input 
+                type="text" 
+                bind:value={playerName} 
+                placeholder="Enter your name"
+                maxlength="20"
+            />
+        </div>
+        <div class="join-options">
+            <button on:click={createRoom}>Create Room</button>
+            <div class="join-form">
                 <input 
                     type="text" 
-                    placeholder="Enter Room Code" 
-                    bind:value={joinRoomInput} 
-                    maxlength="4" 
+                    bind:value={joinRoomCode} 
+                    placeholder="Enter room code"
+                    maxlength="4"
                 />
-                <button on:click={joinRoom}>Join Game</button>
+                <button on:click={joinRoom}>Join Room</button>
             </div>
         </div>
     </div>
-{:else if !gameStarted}
+{:else if gameInitialized}
     <div class="room-lobby">
         <h2>Room: {roomCode}</h2>
-        <div class="players-list">
-            <h3>Players ({players.length}/4):</h3>
-            <ul>
-                {#each players as player}
-                    <li class="{player.id === playerId ? 'current-player' : ''}">
-                        {player.id === playerId ? 'You' : 'Player ' + (players.indexOf(player) + 1)} 
-                        {player.ready ? '(Ready)' : '(Not Ready)'}
-                    </li>
-                {/each}
-            </ul>
-        </div>
-        
-        <div class="button-group">
-            {#if !isReady}
-                <button on:click={setReady}>Ready</button>
-            {:else}
-                <button disabled>Ready ✓</button>
+        {#if !gameStarted}
+            <div class="name-input">
+                <input 
+                    type="text" 
+                    bind:value={playerName} 
+                    placeholder="Enter your name"
+                    maxlength="20"
+                    disabled={isReady}
+                />
+            </div>
+            
+            <div class="players-list">
+                <h3>Players ({players.length}/4):</h3>
+                <ul>
+                    {#each players as player}
+                        <li class="{player.id === playerId ? 'current-player' : ''}">
+                            {player.name} 
+                            {player.ready ? '(Ready ✓)' : '(Not Ready)'}
+                            {#if player.id === playerId}
+                                <span class="you-badge">YOU</span>
+                            {/if}
+                        </li>
+                    {/each}
+                </ul>
+            </div>
+            
+            <div class="button-group">
+                {#if !isReady}
+                    <button on:click={setReady}>Ready</button>
+                {:else}
+                    <button disabled>Ready ✓</button>
+                {/if}
+            </div>
+            
+            {#if isHost}
+                <div class="host-message">
+                    <p>Share this code with friends to play together: <strong>{roomCode}</strong></p>
+                </div>
             {/if}
-            <button on:click={leaveRoom}>Leave Game</button>
-        </div>
-        
-        {#if errorMessage}
-            <div class="error-message">
-                {errorMessage}
-            </div>
-        {/if}
-        
-        {#if isHost}
-            <div class="host-message">
-                <p>Share this code with friends to play together: <strong>{roomCode}</strong></p>
-            </div>
-        {/if}
-        
-        {#if players.length > 1 && players.every(p => p.ready)}
-            <div class="starting-message">
-                <p>All players ready! Game starting...</p>
-            </div>
-        {:else if players.length > 1}
-            <div class="waiting-message">
-                <p>Waiting for all players to ready up...</p>
-            </div>
+            
+            {#if players.length > 1 && players.every(p => p.ready)}
+                <div class="starting-message">
+                    <p>All players ready! Game starting...</p>
+                </div>
+            {:else if players.length > 1}
+                <div class="waiting-message">
+                    <p>Waiting for all players to ready up...</p>
+                </div>
+            {:else}
+                <div class="waiting-message">
+                    <p>Waiting for other players to join...</p>
+                </div>
+            {/if}
         {:else}
-            <div class="waiting-message">
-                <p>Waiting for other players to join...</p>
+            <div class="game-info">
+                <div class="scores-display">
+                    {#each players as player}
+                        <div class="player-score {player.id === playerId ? 'current-player-score' : ''}">
+                            {player.name}: {scores[player.id] || 0}
+                            {#if player.id === playerId}
+                                <span class="you-badge">YOU</span>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
             </div>
         {/if}
     </div>
-{:else}
-    <div class="game-info">
-        <div class="room-info">
-            Room: {roomCode}
-        </div>
-        
-        <div class="scores-display">
-            {#each players as player}
-                <div class="player-score {player.id === playerId ? 'current-player-score' : ''}">
-                    {player.id === playerId ? 'You' : 'Player ' + (players.indexOf(player) + 1)}: 
-                    {scores[player.id] || 0}
-                </div>
-            {/each}
-        </div>
+{/if}
+
+{#if errorMessage}
+    <div class="error-message">
+        {errorMessage}
     </div>
 {/if}
 
 <style>
-    .multiplayer-menu,
     .room-lobby,
     .game-info {
         background-color: white;
@@ -297,17 +382,6 @@
         cursor: not-allowed;
     }
     
-    .join-room {
-        display: flex;
-        gap: 5px;
-    }
-    
-    input {
-        border: 2px solid black;
-        border-radius: 5px;
-        padding: 8px;
-    }
-    
     .players-list {
         margin: 15px 0;
     }
@@ -321,6 +395,10 @@
         margin: 5px 0;
         padding: 5px;
         border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
     }
     
     .current-player {
@@ -372,9 +450,56 @@
     .current-player-score {
         background-color: rgba(0, 0, 0, 0.1);
     }
-    
-    .room-info {
+
+    .name-input {
         text-align: center;
-        font-weight: bold;
+        margin-bottom: 20px;
+    }
+    
+    .name-input input {
+        padding: 8px 16px;
+        font-size: 16px;
+        border: 2px solid #000;
+        border-radius: 5px;
+        width: 200px;
+        text-align: center;
+    }
+    
+    .name-input input:disabled {
+        background-color: #f0f0f0;
+        cursor: not-allowed;
+    }
+    
+    .you-badge {
+        background-color: #3eaa42;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        margin-left: 8px;
+    }
+
+    .join-options {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .join-form {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .join-form input {
+        padding: 8px 16px;
+        font-size: 16px;
+        border: 2px solid #000;
+        border-radius: 5px;
+        width: 120px;
+        text-align: center;
+        text-transform: uppercase;
     }
 </style>
